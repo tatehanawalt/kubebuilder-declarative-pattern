@@ -17,6 +17,7 @@ limitations under the License.
 package status
 
 import (
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/kubebuilder-declarative-pattern/pkg/patterns/declarative"
 )
@@ -51,5 +52,11 @@ func NewBasicVersionChecks(client client.Client, version string) (declarative.St
 func NewKstatusCheck(client client.Client, d *declarative.Reconciler) declarative.Status {
 	return &declarative.StatusBuilder{
 		BuildStatusImpl: NewKstatusAgregator(client, d),
+	}
+}
+
+func NewOpenKstatusCheck(client client.Client, d *declarative.Reconciler, gvkComputeFunctions map[schema.GroupVersionKind]GVKComputeFunc) declarative.Status {
+	return &declarative.StatusBuilder{
+		BuildStatusImpl: NewOpenKstatusAgregator(client, d, gvkComputeFunctions),
 	}
 }

@@ -10,14 +10,27 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/kubebuilder-declarative-pattern/pkg/patterns/addon/pkg/utils"
 	"sigs.k8s.io/kubebuilder-declarative-pattern/pkg/patterns/declarative"
+
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
+type GVKComputeFunc func(u *unstructured.Unstructured) (*status.Result, error)
+
 type kstatusAggregator struct {
+	GVKComputeFuncs map[schema.GroupVersionKind]GVKComputeFunc
 }
 
 // TODO: Create a version that doesn't need reconciler or client?
 func NewKstatusAgregator(_ client.Client, _ *declarative.Reconciler) *kstatusAggregator {
-	return &kstatusAggregator{}
+	return &kstatusAggregator{
+		GVKComputeFuncs: map[schema.GroupVersionKind]GVKComputeFunc{},
+	}
+}
+
+func NewOpenKstatusAgregator(_ client.Client, _ *declarative.Reconciler, gvkComputeFunctions map[schema.GroupVersionKind]GVKComputeFunc) *kstatusAggregator {
+	return &kstatusAggregator{
+		GVKComputeFuncs: gvkComputeFunctions,
+	}
 }
 
 func (k *kstatusAggregator) BuildStatus(ctx context.Context, info *declarative.StatusInfo) error {
@@ -68,7 +81,12 @@ func (k *kstatusAggregator) BuildStatus(ctx context.Context, info *declarative.S
 				statusMap[status.UnknownStatus] = true
 				continue
 			}
-			res, err := status.Compute(unstruct)
+
+			var computeFunc GVKComputeFunc = status.Compute
+			if gvkComputeFunc, ok := k.GVKComputeFuncs[gvk]; ok {
+				computeFunc = gvkComputeFunc
+			}
+			res, err := computeFunc(unstruct)
 			if err != nil {
 				log.Error(err, "error getting status of resource")
 				statusMap[status.UnknownStatus] = true
